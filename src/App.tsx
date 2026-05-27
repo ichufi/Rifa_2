@@ -25,6 +25,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [pinInput, setPinInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Configurações Gerais da Rifa (salvas e sincronizadas na nuvem)
   const [pixKey, setPixKey] = useState('453.499.178-97');
@@ -842,7 +843,116 @@ export default function App() {
           
           <div className="text-center sm:text-left mb-1 px-2">
             <h2 className="text-[#4a2e1b] font-black text-xl sm:text-2xl">Escolha seus números da sorte abaixo 👇</h2>
-            <p className="text-xs text-slate-500 mt-1">Toque no número desejado para reservar.</p>
+            <p className="text-xs text-slate-500 mt-1">Toque no número desejado para reservar ou consulte se seu número já está correto.</p>
+          </div>
+
+          {/* CONSULTA RÁPIDA (BUSCAR POR NOME OU NÚMERO) */}
+          <div className="bg-white/80 backdrop-blur-sm p-4.5 rounded-[24px] border border-[#ebdcc5] shadow-sm flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#ebdcc5]/60 pb-2.5">
+              <div>
+                <h3 className="text-sm font-black text-[#4a2e1b] flex items-center gap-1.5">
+                  🔍 Consultar Reservas e Compradores
+                </h3>
+                <p className="text-[10px] text-slate-550 font-medium">Pesquise pelo seu nome ou digite o número para ver em qual número da rifa você apostou</p>
+              </div>
+            </div>
+
+            <div className="relative">
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Pesquise por nome completo, parte do nome, telefone ou número da rifa..."
+                className="w-full bg-white border border-[#d6cbbe] rounded-xl pl-10 pr-10 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#bfa36f] text-[#4a2e1b] font-semibold shadow-inner placeholder:text-slate-400 placeholder:font-normal"
+              />
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
+                🔍
+              </span>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#4a2e1b] text-xs font-bold transition p-1 bg-slate-100 hover:bg-slate-200 rounded-full flex items-center justify-center w-5 h-5"
+                  title="Limpar pesquisa"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {searchQuery.trim().length > 0 && (() => {
+              const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              
+              const results = Object.values(numbers).filter((item: any) => {
+                const numStr = String(item.number);
+                const nameStr = (item.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const phoneStr = (item.phone || '').replace(/\D/g, '');
+                const qCleanDigits = q.replace(/\D/g, '');
+
+                return numStr === q || nameStr.includes(q) || (qCleanDigits && phoneStr.includes(qCleanDigits));
+              });
+
+              if (results.length === 0) {
+                return (
+                  <div className="bg-[#fcfaf7] rounded-xl p-4 text-center border border-dashed border-slate-200">
+                    <p className="text-xs text-slate-500 font-medium">Nenhum número reservado encontrado para "{searchQuery}"</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-2 mt-1 animate-in fade-in duration-200">
+                  <p className="text-[10px] font-bold text-[#8a5d3b] uppercase px-1">Resultados encontrados ({results.length})</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 overflow-y-auto max-h-48 scrollbar-thin">
+                    {results.map((item: any) => {
+                      let statusBg = "bg-[#fcfbf9] text-[#4a2e1b] border-slate-300";
+                      let statusLabel = "Livre";
+
+                      if (item.status === 'pending') {
+                        statusBg = "bg-amber-100 text-amber-800 border-amber-200";
+                        statusLabel = "Pendente";
+                      } else if (item.status === 'approved') {
+                        statusBg = "bg-[#4a2e1b] text-[#f4ebd9] border-[#4a2e1b]";
+                        statusLabel = "Pago";
+                      }
+
+                      return (
+                        <div 
+                          key={item.number}
+                          onClick={() => {
+                            setSelectedNumber(item.number);
+                          }}
+                          className="flex items-center justify-between p-2.5 bg-white border border-[#ebdcc5] rounded-xl hover:border-[#bfa36f] cursor-pointer transition shadow-sm active:scale-[0.98]"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
+                              item.status === 'pending' ? 'bg-amber-500 text-white' : 
+                              item.status === 'approved' ? 'bg-[#4a2e1b] text-white' : 
+                              'bg-slate-200 text-slate-700'
+                            }`}>
+                              {item.number}
+                            </span>
+                            <div className="min-w-0 leading-tight">
+                              <p className="text-xs font-bold text-[#4a2e1b] truncate">
+                                {item.name || "Número Livre"}
+                              </p>
+                              {item.phone && (
+                                <p className="text-[10px] text-slate-500 font-medium">
+                                  {item.phone}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusBg}`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* FILTROS */}
