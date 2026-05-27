@@ -35,7 +35,7 @@ export default function App() {
   const [causeDescription, setCauseDescription] = useState('O Chico perdeu 12kg e está enfrentando uma batalha pesada de saúde. Todo o valor desta rifa é para a sua cirurgia e exames.');
   const [adminPin, setAdminPin] = useState('1234');
   const [totalTickets, setTotalTickets] = useState(200);
-  const [campaignTitle, setCampaignTitle] = useState('RIFA DO CHICO');
+  const [campaignTitle, setCampaignTitle] = useState('Rifa solidária');
   const [campaignSubtitle, setCampaignSubtitle] = useState('Ajudando o nosso guerreiro no tratamento de saúde');
   const [prizeDescription, setPrizeDescription] = useState('BOLA OFICIAL DA COPA 2026 ou CAMISA OFICIAL DA SELEÇÃO + ÁLBUM PET PERSONALIZADO.');
   const [causeTitle, setCauseTitle] = useState('Nosso Guerreiro Chico precisa de nós!');
@@ -153,7 +153,7 @@ export default function App() {
           causeDescription: 'O Chico perdeu 12kg e está enfrentando uma batalha pesada de saúde. Todo o valor desta rifa é para a sua cirurgia e exames.',
           adminPin: '1234',
           totalTickets: 200,
-          campaignTitle: 'RIFA DO CHICO',
+          campaignTitle: 'Rifa solidária',
           campaignSubtitle: 'Ajudando o nosso guerreiro no tratamento de saúde',
           prizeDescription: 'BOLA OFICIAL DA COPA 2026 ou CAMISA OFICIAL DA SELEÇÃO + ÁLBUM PET PERSONALIZADO.',
           causeTitle: 'Nosso Guerreiro Chico precisa de nós!',
@@ -1026,7 +1026,7 @@ export default function App() {
           className="font-bold text-[#4a2e1b] cursor-pointer select-none py-1 hover:text-[#bfa36f] transition"
           title="Acesso Administrativo"
         >
-          🐾 POR ELE, POR AMOR! 🐾
+          🐾 {campaignTitle} 🐾
         </div>
       </footer>
 
