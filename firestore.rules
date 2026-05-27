@@ -1,0 +1,119 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Admin check: User's email from the prompt or presence in a trusted admins collection
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'i.chufi.gallo@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Config Validation ---
+    function isValidConfig(data) {
+      return data.keys().hasAll(['pixKey', 'pixName', 'pixBank', 'ticketPrice', 'causeDescription', 'adminPin']) &&
+             data.keys().size() >= 6 && data.keys().size() <= 15 &&
+             data.pixKey is string && data.pixKey.size() <= 100 &&
+             data.pixName is string && data.pixName.size() <= 100 &&
+             data.pixBank is string && data.pixBank.size() <= 100 &&
+             data.ticketPrice is number && data.ticketPrice >= 0 &&
+             data.causeDescription is string && data.causeDescription.size() <= 2000 &&
+             data.adminPin is string && data.adminPin.size() <= 10 &&
+             (!data.keys().hasAll(['totalTickets']) || (data.totalTickets is number && data.totalTickets >= 1 && data.totalTickets <= 10000)) &&
+             (!data.keys().hasAll(['campaignTitle']) || (data.campaignTitle is string && data.campaignTitle.size() <= 200)) &&
+             (!data.keys().hasAll(['campaignSubtitle']) || (data.campaignSubtitle is string && data.campaignSubtitle.size() <= 300)) &&
+             (!data.keys().hasAll(['prizeDescription']) || (data.prizeDescription is string && data.prizeDescription.size() <= 1000)) &&
+             (!data.keys().hasAll(['causeTitle']) || (data.causeTitle is string && data.causeTitle.size() <= 300)) &&
+             (!data.keys().hasAll(['themeBg']) || (data.themeBg is string && data.themeBg.size() <= 30)) &&
+             (!data.keys().hasAll(['themePrimary']) || (data.themePrimary is string && data.themePrimary.size() <= 30)) &&
+             (!data.keys().hasAll(['themeSecondary']) || (data.themeSecondary is string && data.themeSecondary.size() <= 30)) &&
+             (!data.keys().hasAll(['campaignImage']) || (data.campaignImage is string && data.campaignImage.size() <= 1000000));
+    }
+
+    // --- Ticket Validation ---
+    function isValidTicket(data) {
+      return data.keys().hasAll(['number', 'status', 'name', 'phone', 'createdAt']) &&
+             data.keys().size() == 5 &&
+             data.number is number && data.number >= 1 && data.number <= 10000 &&
+             data.status in ['available', 'pending', 'approved'] &&
+             data.name is string && data.name.size() <= 150 &&
+             data.phone is string && data.phone.size() <= 50;
+    }
+
+    // --- Match Rules ---
+    
+    // Global Config
+    match /artifacts/app-chico-rifa/public/data/config/settings {
+      allow read: if true;
+      allow write: if (isAdmin() || !exists(/databases/$(database)/documents/artifacts/app-chico-rifa/public/data/config/settings)) && isValidConfig(incoming());
+    }
+
+    // Tickets
+    match /artifacts/app-chico-rifa/public/data/tickets/{ticketId} {
+      allow read: if true;
+      
+      // Admin can create or delete tickets
+      allow create, delete: if isAdmin();
+
+      allow update: if (
+        isValidTicket(incoming()) && (
+          isAdmin() ||
+          // Buyer Action: Reservation
+          (
+            existing().status == 'available' &&
+            incoming().status == 'pending' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'name', 'phone', 'createdAt']) &&
+            incoming().number == existing().number && // Immunize number
+            incoming().name.size() > 1 &&
+            incoming().phone.size() > 5 &&
+            incoming().createdAt == request.time
+          )
+        )
+      );
+    }
+    
+    // Admins Collection
+    match /admins/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      // Admin can write, or signed-in user can write/create their own admin doc if they present correct PIN
+      allow create, update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          request.auth.uid == uid &&
+          incoming().keys().hasAll(['uid', 'authorizedAt', 'pin']) &&
+          incoming().keys().size() == 3 &&
+          incoming().uid == uid &&
+          (
+            (exists(/databases/$(database)/documents/artifacts/app-chico-rifa/public/data/config/settings) && incoming().pin == get(/databases/$(database)/documents/artifacts/app-chico-rifa/public/data/config/settings).data.adminPin) ||
+            (!exists(/databases/$(database)/documents/artifacts/app-chico-rifa/public/data/config/settings) && incoming().pin == '1234')
+          )
+        )
+      );
+      allow delete: if isAdmin();
+    }
+  }
+}
